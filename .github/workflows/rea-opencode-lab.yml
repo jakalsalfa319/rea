@@ -1,0 +1,54 @@
+name: REA OpenCode Lab - controlled fixture verification
+
+on:
+  push:
+    branches:
+      - lab/rea-opencode-codespaces-20261111
+    paths:
+      - "lab/**"
+      - ".devcontainer/**"
+      - ".github/workflows/rea-opencode-lab.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-lab:
+    name: REA/OpenCode fixture checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout isolated branch
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set supported Node.js runtime
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.22.1
+
+      - name: Install pinned published tools
+        run: |
+          npm install --global @opencode/cli rea-agents@6.7.0
+          node --version
+          opencode --version
+          rea --version
+
+      - name: Register REA for OpenCode in ephemeral CI runner
+        run: |
+          mkdir -p lab/.reports
+          rea setup --client opencode --yes --json > lab/.reports/rea-ci-setup.json
+
+      - name: Test owned JS fixture and REA evidence
+        run: bash lab/smoke.sh
+
+      - name: Store diagnostic reports on success or failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rea-opencode-lab-reports
+          path: lab/.reports/
+          if-no-files-found: warn
+          retention-days: 3
